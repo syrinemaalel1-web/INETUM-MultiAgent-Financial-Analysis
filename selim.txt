@@ -1,0 +1,56 @@
+pour tester les agents de calcul et de rapports:
+
+python src/agents/agents.py --input data/processed/CAP_OBLIG_SICAV_2025_EF.md --output data/rapports/CAP_OBLIG_SICAV_2025_rapport.md
+
+
+pour tester l'extraction:
+
+python src/extractor/extract.py --pdf data/raw/ARABIA_SICAV_2025_EF.pdf
+
+
+por tester le scraping :
+
+python src/scraper/agent.py  --test --societe "ATTIJARI BANK"
+python src/scraper/agent.py  --test
+
+
+pour scraper un nombre precis des pages:mazedhech lezem nzidha :
+
+# Scraper exactement 5 pages (0 à 4)
+python src/scraper/agent.py --pages 5
+
+
+# Scraper 5 pages + filtre société
+python agent.py --pages 5 --societe "ATTIJARI BANK"
+
+voila le code ajouter : 
+
+1. Dans le bloc argparse, ajoute :
+pythonparser.add_argument("--pages", type=int, default=None,
+                    help="Nombre de pages à scraper (ex: --pages 5)")
+2. Dans le bloc if __name__ == "__main__", remplace :
+pythonpage_end = 2 if args.test else 19
+Par :
+pythonif args.test:
+    page_end = 2
+elif args.pages:
+    page_end = args.pages - 1
+else:
+    page_end = 19
+Ensuite tu peux faire :
+powershell# Scraper exactement 5 pages (0 à 4)
+python agent.py --pages 5
+
+# Scraper 5 pages + filtre société
+python agent.py --pages 5 --societe "ATTIJARI BANK"
+
+# Scraper 10 pages seulement
+python agent.py --pages 10
+
+
+
+
+
+
+
+

@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kpisagent"
+version = "1.0.0"
+description = "CMF Tunisia Financial Analysis Platform"
+authors = [{name = "KPIs Agent Team"}]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "crewai>=0.80.0",
+    "crewai-tools>=0.14.0",
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "google-generativeai>=0.8.0",
+    "docling>=2.5.0",
+    "pydantic>=2.0.0",
+    "tqdm>=4.66.0",
+    "python-dotenv>=1.0.0",
+    "Jinja2>=3.1.0",
+    "pdfplumber>=0.11.0",
+    "pandas>=2.0.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.22.0",
+    "python-multipart>=0.0.6",
+    "httpx>=0.25.0",
+    "sqlalchemy>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "flake8>=6.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/slimgithub04/kpisagent"
+Repository = "https://github.com/slimgithub04/kpisagent.git"
+Issues = "https://github.com/slimgithub04/kpisagent/issues"
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-v --cov=backend --cov=src --cov-report=html --cov-report=term"

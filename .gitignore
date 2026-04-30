@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+*.spec
+.venv/
+venv/
+env/
+.env.local
+
+# Environment variables (keep .env.example, ignore .env)
+.env
+
+# Data & models (large files)
+backend/data/raw/
+backend/data/processed/
+backend/data/rapports/
+*.pdf
+*.onnx
+*.safetensors
+*.bin
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+.npm/
+
+# ML / HuggingFace cache
+.cache/
+*.faiss
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Misc
+*.tmp
+*.bak

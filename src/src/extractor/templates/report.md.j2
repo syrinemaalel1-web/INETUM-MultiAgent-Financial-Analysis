@@ -1,0 +1,48 @@
+---
+société: "{{ metadata.société }}"
+année: "{{ metadata.année }}"
+type_état: "{{ metadata.type_état }}"
+source_file: "{{ metadata.source_file }}"
+date_extraction: "{{ metadata.date_extraction }}"
+nb_pages: {{ metadata.nb_pages }}
+nb_tableaux: {{ metadata.nb_tableaux }}
+nb_sections: {{ metadata.nb_sections }}
+statut: "{{ metadata.statut }}"
+---
+
+# {{ metadata.société }} — États Financiers {{ metadata.année }} ({{ metadata.type_état }})
+
+{% for section in organized_sections %}
+{% if section.niveau <= 2 %}
+## {{ section.type_section }}
+{{ section.contenu }}
+
+{% for tbl in section.tables %}
+### Tableau {{ tbl.type_tableau }} — Page {{ tbl.page }}
+{% if tbl.markdown_table %}
+{{ tbl.markdown_table }}
+{% else %}
+> ⚠️ Tableau non extractible (page {{ tbl.page }})
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+{% if unassigned_tables %}
+## Autres Tableaux Détectés
+{% for tbl in unassigned_tables %}
+### Tableau {{ tbl.type_tableau }} — Page {{ tbl.page }}
+{% if tbl.markdown_table %}
+{{ tbl.markdown_table }}
+{% else %}
+> ⚠️ Tableau non extractible (page {{ tbl.page }})
+{% endif %}
+{% endfor %}
+{% endif %}
+
+## Texte Brut Complet
+
+{{ full_text }}
+
+---
+*Extraction : Docling TableFormer | Pipeline : texte natif (sans OCR) | Date : {{ metadata.date_extraction }}*

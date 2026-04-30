@@ -1,0 +1,195 @@
+# CONTEXTE & RÔLE
+Tu es un ingénieur senior spécialisé en traitement de documents financiers PDF,
+extraction de données structurées avec Docling (IBM Research), et pipelines ETL Python.
+
+# OBJECTIF
+Génère le fichier extract.py complet et production-ready.
+Ce script est la Phase 3 d'un pipeline de scraping des états financiers CMF Tunisie :
+- Phase 1 (fait) : CrewAI scrape les URLs → data/urls.json
+- Phase 2 (fait) : Téléchargement des PDFs → data/raw/*.pdf
+- Phase 3 (ce fichier) : Extraction Docling → data/processed/*.md UNIQUEMENT
+
+# HYPOTHÈSE CRITIQUE SUR LES PDFs
+Les PDFs de la CMF sont des PDFs natifs (texte sélectionnable, pas des scans).
+→ NE PAS activer l'OCR (EasyOCR, Tesseract, etc.)
+→ NE PAS utiliser les pipelines OCR de Docling
+→ Utiliser uniquement le pipeline texte natif de Docling :
+   PipelineOptions avec do_ocr=False et do_table_structure=True (TableFormer)
+
+# FORMAT DE SORTIE : MARKDOWN UNIQUEMENT
+Chaque PDF produit UN SEUL fichier : data/processed/{SOCIÉTÉ}_{ANNÉE}_{TYPE}.md
+
+Structure du fichier Markdown produit :
+
+---
+société: ATTIJARI BANK
+année: "2023"
+type_état: EFD
+source_file: ATTIJARI_BANK_2023_EFD.pdf
+date_extraction: 2025-07-10T14:32:00
+nb_pages: 45
+nb_tableaux: 12
+nb_sections: 8
+statut: succès
+---
+
+# ATTIJARI BANK — États Financiers 2023 (EFD)
+
+## BILAN ACTIF
+[contenu textuel de la section]
+
+### Tableau BILAN_ACTIF — Page 5
+| Rubrique | 2023 | 2022 |
+|---|---|---|
+| Caisse et avoirs | 125 000 | 98 000 |
+
+## ETAT_RESULTAT
+[contenu textuel]
+
+### Tableau ETAT_RESULTAT — Page 12
+| ... | ... |
+...
+
+## NOTES_ANNEXES
+[contenu textuel]
+
+---
+*Extraction : Docling TableFormer | Pipeline : texte natif (sans OCR)*
+
+# RÈGLES DE CONSTRUCTION DU MARKDOWN
+
+## Frontmatter YAML (obligatoire en tête)
+- Bloc délimité par ---
+- Champs : société, année, type_état, source_file,
+  date_extraction (ISO8601), nb_pages, nb_tableaux,
+  nb_sections, statut (succès|partiel|échec)
+- Extraire société/année/type_état depuis le nom du fichier
+
+## Sections (headings)
+- H1 : titre du document ({société} — {type_état} {année})
+- H2 : chaque section détectée (BILAN, RÉSULTAT, FLUX, etc.)
+- H3 : chaque tableau dans sa section parente
+
+## Tables Markdown
+- Chaque tableau Docling converti en table Markdown standard
+- Titre du tableau en H3 : "### Tableau {type_tableau} — Page {n}"
+- Sous le tableau : ligne vide pour séparabilité
+- Si le tableau est vide ou non parseable → écrire :
+  > ⚠️ Tableau non extractible (page {n})
+
+## Texte complet
+- Après toutes les sections, ajouter une section H2 :
+  ## Texte Brut Complet
+  avec le texte intégral du document (utile pour recherche full-text)
+
+## Footer
+- Dernière ligne : note d'extraction (moteur, date, pipeline)
+
+# STACK TECHNIQUE
+- Extraction PDF   : docling (DocumentConverter + TableFormer uniquement)
+- Validation       : pydantic v2 (valider le frontmatter avant écriture)
+- Logging          : module logging standard (extract.log + console)
+- Progression      : extract_progress.json (reprise sur interruption)
+- CLI              : argparse
+- Chemins          : pathlib (compatible Windows/Linux)
+
+# ARCHITECTURE — Classe DocumentExtractor
+
+## __init__
+Configurer DocumentConverter SANS OCR :
+  from docling.datamodel.pipeline_options import PdfPipelineOptions
+  pipeline_options = PdfPipelineOptions()
+  pipeline_options.do_ocr = False              ← OBLIGATOIRE
+  pipeline_options.do_table_structure = True   ← TableFormer activé
+Configurer logging. Créer dossiers si inexistants.
+
+## extract_single(pdf_path: Path, output_dir: Path) -> dict
+- Convertit le PDF via Docling en DoclingDocument
+- Appelle _extract_sections(), _extract_tables(), _detect_section_types()
+- Construit le Markdown final via _build_markdown()
+- Valide le frontmatter via Pydantic avant écriture
+- Sauvegarde : output_dir/{stem}.md
+- Retourne : {"status": str, "path": str, "message": str, "nb_tables": int}
+- Gère : PDF corrompu, PDF protégé, timeout > 120s
+
+## extract_batch(input_dir: Path, output_dir: Path,
+                 force_retry: bool = False) -> None
+- Scanne input_dir pour tous les .pdf
+- Si force_retry=False : skip si {stem}.md existe déjà dans output_dir
+- Boucle sur extract_single avec barre tqdm
+- Met à jour extract_progress.json après chaque fichier
+- Affiche rapport final : total OK / skip / erreur
+
+## Méthodes privées (chacune < 30 lignes)
+- _extract_sections(doc) -> list[dict]
+    → retourne [{"titre", "niveau", "contenu", "page", "type_section"}]
+- _extract_tables(doc) -> list[dict]
+    → retourne [{"titre", "page", "type_tableau", "markdown_table": str}]
+    → Utiliser doc.tables et convertir chaque table en Markdown via pandas
+- _detect_section_type(titre: str) -> str
+    → Retourne : BILAN_ACTIF | BILAN_PASSIF | ETAT_RESULTAT |
+                 FLUX_TRESORERIE | VARIATION_CAPITAUX | NOTES_ANNEXES | AUTRE
+- _build_markdown(metadata: dict, sections: list,
+                  tables: list, full_text: str) -> str
+    → Assemble le fichier Markdown complet (frontmatter + corps)
+- _parse_filename_metadata(pdf_path: Path) -> dict
+    → Extrait société/année/type depuis "{SOCIÉTÉ}_{ANNÉE}_{TYPE}.pdf"
+
+# DÉTECTION DES TYPES DE SECTIONS (états financiers tunisiens)
+_detect_section_type() via regex case-insensitive :
+- "BILAN" + ("ACTIF" | pas "PASSIF") → "BILAN_ACTIF"
+- "BILAN" + "PASSIF"                 → "BILAN_PASSIF"
+- "RÉSULTAT" | "COMPTE DE RÉSULTAT"  → "ETAT_RESULTAT"
+- "FLUX" | "TRÉSORERIE"              → "FLUX_TRESORERIE"
+- "CAPITAUX PROPRES" | "VARIATION"   → "VARIATION_CAPITAUX"
+- "NOTE" | "ANNEXE"                  → "NOTES_ANNEXES"
+- Aucun match                        → "AUTRE"
+Tagger chaque tableau avec son type_tableau détecté depuis le titre
+ou depuis la section parente si titre ambigu.
+
+# MODÈLES PYDANTIC v2 (pour validation du frontmatter)
+class DocumentFrontmatter(BaseModel):
+    société: str
+    année: str
+    type_état: str
+    source_file: str
+    date_extraction: str
+    nb_pages: int
+    nb_tableaux: int
+    nb_sections: int
+    statut: Literal["succès", "partiel", "échec"]
+
+# GESTION DE LA PROGRESSION (extract_progress.json)
+{
+  "processed_files": ["STIP_2023_EFI.pdf", ...],
+  "failed_files": [{"file": "X.pdf", "reason": "..."}],
+  "last_processed": "ISO8601"
+}
+Si force_retry=True → ignorer ce fichier et tout retraiter.
+
+# CLI (argparse)
+--pdf PATH       : traitement d'un seul PDF
+--batch          : traitement de data/raw/ complet
+--output PATH    : dossier de sortie (défaut: data/processed/)
+--force-retry    : retraite même les fichiers déjà présents
+
+# CONTRAINTES
+- Chaque méthode/fonction < 30 lignes
+- Type hints sur toutes les fonctions
+- Docstrings en français sur chaque méthode
+- Logging structuré avec timestamps
+- Aucun secret hardcodé
+- Compatible Python 3.10+
+- Gestion explicite : ConversionError, FileNotFoundError,
+  ValidationError Pydantic, timeout Docling, IOError
+
+# COHÉRENCE AVEC LE PIPELINE
+- Nommage fichiers : même convention Phase 2 → {SOCIÉTÉ}_{ANNÉE}_{TYPE}
+- Lire metadata depuis le nom du fichier
+- Logging dans extract.log (même style que cmf_scraper.log)
+
+# FORMAT DE SORTIE ATTENDU
+1. requirements_extract.txt
+2. extract.py (code complet, commenté en français)
+3. Exemple complet d'un fichier .md produit (document fictif ATTIJARI 2023)
+4. Commandes d'installation et test rapide

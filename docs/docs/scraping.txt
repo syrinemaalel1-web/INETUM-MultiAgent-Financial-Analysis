@@ -1,0 +1,188 @@
+project/
+│
+├── data/
+│   ├── raw/          # PDFs téléchargés (BRUT)
+│   ├── processed/    # texte extrait docling
+│   └── parsed/       # JSON structuré
+│
+├── agents/
+├   ├── scripts/
+    └── outputs/
+******************************************************************************************************
+Chaque PDF est un lien direct de type https://www.cmf.tn/sites/default/files/pdfs/emetteurs/informations/rapports-societes/nom_fichier.pdf
+Les liens sont dans le HTML en balises <a href="..."> classiques
+Pas de JavaScript dynamique (SPA) pour charger les liens — c'est du HTML serveur
+Il y a une pagination (page=0, page=1, ..., jusqu'à page=389) à parcourir
+Un filtre par société est disponible (dropdown) pour cibler une entreprise spécifique
+
+***************************llm***************************************
+Google Gemini Flash — gratuit jusqu'à un certain quota
+framework: crewai
+**********************************************************************
+d'abord utiliser l'outil 'Scraper Web' pour lire le contenu de la page,
+puis l'outil 'Extracteur de Liens PDF' pour obtenir les URLs, et enfin l'outil
+'Téléchargeur de Fichiers' pour les sauvegarder.
+******************************************prompt1**************************************
+# CONTEXTE & RÔLE
+Tu es un ingénieur senior spécialisé en développement d'agents AI et en web scraping Python.
+Tu maîtrises parfaitement CrewAI, LangChain, les outils de scraping (requests, BeautifulSoup),
+et les bonnes pratiques de développement (gestion d'erreurs, logging, reprise sur erreur).
+
+# OBJECTIF
+Génère le code Python complet et production-ready d'un système multi-agents CrewAI
+pour scraper et télécharger les PDFs des états financiers depuis le site de la CMF Tunisie.
+
+# SITE CIBLE
+URL de base : https://www.cmf.tn/consultation-des-tats-financier-des-soci-t-s-faisant-ape
+Structure de la pagination : https://www.cmf.tn/?q=consultation-des-tats-financier-des-soci-t-s-faisant-ape&page={n}
+- - Total pages : 0 à 19 (limite volontaire pour test / version initiale)
+- Les PDFs sont des balises <a href="..."> classiques dans le HTML (pas de JS dynamique / SPA)
+- Pattern d'URL PDF : https://www.cmf.tn/sites/default/files/pdfs/emetteurs/informations/rapports-societes/{filename}.pdf
+- Chaque entrée contient : nom de la société, année, type d'états financiers, lien PDF
+
+# STACK TECHNIQUE
+- Framework agent : CrewAI (dernière version stable)
+- LLM : gemini/gemini-2.5-flash
+- Scraping : requests + BeautifulSoup4
+- Gestion fichiers : os, pathlib
+- Logging : module logging Python standard
+- Gestion dépendances : requirements.txt à fournir
+
+# ARCHITECTURE DES AGENTS
+
+## Agent 1 — "Web Scraper Agent"
+- Rôle : Naviguer sur le site CMF et extraire les URLs des PDFs
+- Outils à créer :
+  * scrape_page(page_number: int) → retourne une liste de dicts :
+    [{société, année, type_état, pdf_url}]
+  * Le scraper doit se limiter aux pages 0 à 19 pour le test initial
+- Doit gérer : timeout, retry (3 tentatives), status codes HTTP non-200
+
+## Agent 2 — "PDF Downloader Agent"
+- Rôle : Recevoir la liste d'URLs et télécharger chaque PDF localement
+- Outils à créer :
+  * download_pdf(pdf_url: str, société: str, année: str) → télécharge et sauvegarde le PDF
+  * check_already_downloaded(filename: str) → évite les re-téléchargements
+- Naming convention du fichier : {société}_{année}_{type}.pdf (caractères spéciaux nettoyés)
+- Répertoire de sortie : "data/raw" (créé automatiquement s'il n'existe pas)  
+- Doit gérer : fichiers déjà existants (skip), erreurs réseau, fichiers corrompus (vérif taille > 0)
+
+# FLUX DE TRAVAIL (Tasks CrewAI)
+1. Task 1 → assignée au Web Scraper Agent :
+   "Parcourir toutes les pages de 0 à 19 du site CMF, extraire pour chaque PDF :
+   le nom de la société, l'année, le type d'états financiers, et l'URL du PDF.
+   Retourner une liste complète et dédupliquée."
+
+2. Task 2 → assignée au PDF Downloader Agent (dépend de Task 1) :
+   "Recevoir la liste produite par Task 1, télécharger chaque PDF dans "data/raw",
+   en skippant les fichiers déjà présents, et produire un rapport final :
+   total téléchargés, total skippés, total erreurs."
+
+# CONTRAINTES TECHNIQUES OBLIGATOIRES
+- Rate limiting : attente de 1 à 2 secondes entre chaque requête HTTP (random.uniform)
+- User-Agent header : simuler un navigateur réel
+- Logging structuré : chaque action loggée avec timestamp (fichier cmf_scraper.log + console)
+- Reprise sur interruption : sauvegarder la progression dans un fichier progress.json
+  (si le script est relancé, il reprend à la dernière page non traitée)
+- Mode test : paramètre CLI --test qui scrape uniquement les pages 0 à 2 pour validation
+- Filtre optionnel : paramètre CLI --societe "NOM" pour ne scraper qu'une société spécifique
+
+# FORMAT DE SORTIE ATTENDU
+Fournis exactement dans cet ordre :
+1. requirements.txt
+2. scraper_agent.py — le fichier principal complet et fonctionnel
+3. Un exemple de log de sortie attendu (en commentaire ou markdown)
+4. Les commandes d'installation et d'exécution (README court)
+
+# QUALITÉ DU CODE
+- Code commenté en français
+- Fonctions bien découpées (pas de fonction > 30 lignes)
+- Gestion explicite de toutes les exceptions (requests.exceptions, IOError, etc.)
+- Aucun secret hardcodé (tout via os.environ)
+- Compatible Python 3.10+
+-All tools MUST be implemented as CrewAI Tools (using @tool decorator or equivalent).
+-Each tool must be reusable and callable by the agent.
+The progress.json file must store:
+{
+  "last_page_scraped": int,
+  "downloaded_files": [list of filenames]
+}
+************************************************prompt2****************************************
+```markdown
+En tant qu'expert en Prompt Engineering et développeur Python expérimenté, votre tâche est de générer un script Python complet et fonctionnel pour un système d'agents basé sur le framework `crewAI`. Ce script doit implémenter l'architecture d'agent suivante, spécifiquement conçue pour le scraping et le téléchargement de fichiers PDF d'états financiers depuis le site web de la CMF Tunisie.
+
+**Contexte du Projet :**
+L'objectif est de créer un agent autonome capable de naviguer sur une page web spécifique, d'identifier les liens vers des documents PDF d'états financiers, de télécharger ces PDF et de les stocker localement. La phase d'extraction et de parsing du contenu des PDF sera gérée ultérieurement par un outil externe (Docling), l'agent ne doit donc pas s'en préoccuper.
+
+**Architecture de l'Agent (crewAI) :**
+
+1.  **Agent : "Scraper Web"**
+    *   **Rôle :** Expert en navigation web et extraction de données HTML.
+    *   **Objectif :** Parcourir la page web de la CMF, identifier et collecter toutes les URLs de fichiers PDF correspondant aux états financiers.
+    *   **Outils requis :**
+        *   `requests` : Pour effectuer des requêtes HTTP GET vers la page web.
+        *   `BeautifulSoup` : Pour analyser le contenu HTML et extraire les liens.
+    *   **Tâche spécifique :**
+        *   Visiter l'URL cible : `https://www.cmf.tn/consultation-des-tats-financier-des-soci-t-s-faisant-ape`.
+        *   Analyser le contenu HTML pour trouver tous les éléments `<a>` (liens).
+        *   Filtrer ces liens pour ne retenir que ceux dont l'attribut `href` se termine par `.pdf`.
+        *   Idéalement, affiner le filtrage pour s'assurer que les liens sont bien des états financiers (par exemple, en vérifiant le texte adjacent au lien ou des motifs dans l'URL).
+        *   Transmettre la liste des URLs PDF valides à l'agent "Téléchargeur PDF".
+        * Limite de pages : pour le test initial, ne scraper que les pages 0 à 19
+- Paramètre CLI : --max_pages N pour définir dynamiquement le nombre de pages à scraper
+2.  **Agent : "Téléchargeur PDF"**
+    *   **Rôle :** Expert en gestion de fichiers et téléchargement sécurisé.
+    *   **Objectif :** Télécharger les fichiers PDF fournis par l'agent "Scraper Web" et les sauvegarder dans un répertoire local avec une nomenclature claire et descriptive.
+    *   **Outils requis :**
+        *   `requests` : Pour télécharger les fichiers PDF.
+        *   Fonctions natives de Python pour la gestion du système de fichiers (création de répertoires, écriture de fichiers).
+    *   **Tâche spécifique :**
+        *   Recevoir une liste d'URLs de PDF.
+        *   Pour chaque URL, télécharger le fichier PDF.
+        *   Sauvegarder chaque PDF dans le répertoire "data/raw" .
+        *   La nomenclature des fichiers doit être informative (ex: `NOM_SOCIETE_ANNEE_TYPE_DATE.pdf` si possible, en extrayant ces informations du texte du lien ou de l'URL).
+        *   Gérer les cas où le répertoire de destination n'existe pas (le créer si nécessaire).
+
+**Flux de Travail Global (crewAI Process) :**
+
+1.  L'agent "Scraper Web" initie la collecte des URLs.
+2.  Une fois les URLs collectées, il les passe à l'agent "Téléchargeur PDF".
+3.  L'agent "Téléchargeur PDF" exécute le téléchargement de tous les fichiers.
+4.  Le système signale la fin de la tâche de scraping et de téléchargement.
+
+**Contraintes et Exigences Techniques :**
+
+*   Le code doit être écrit en Python 3.10.
+*   Utiliser le framework `crewAI` pour orchestrer les agents et leurs tâches.
+*   Les dépendances (`crewai`, `requests`, `beautifulsoup4`) doivent être clairement listées.
+*   Le répertoire de destination des PDF doit être "data/raw". Assurez-vous qu'il est créé si inexistant.
+*   Inclure des commentaires clairs pour expliquer chaque section du code.
+*   Gérer les erreurs de base (ex: échec de requête HTTP, fichier non trouvé).
+*   Le LLM utilisé pour l'agent sera gemini/gemini-2.5-flash
+*   Le script doit être autonome et exécutable.
+
+**Livrable :**
+Un script Python (`cmf_pdf_scraper_agent.py`) contenant la définition des agents, leurs outils, leurs tâches et le processus `crewAI` pour exécuter le scraping et le téléchargement des PDF.
+```
+*******************************************************************************************************************************************
+project/
+│
+├── agents/
+│   └── scripts/
+│       ├── agent.py          ✅ déjà fait — scraping + téléchargement
+│       ├── extract.py        🔜 extraction texte avec Docling
+│       └── parse.py          🔜 parsing + structuration JSON
+│
+├── data/
+│   ├── raw/                  ✅ PDFs téléchargés
+│   ├── processed/            🔜 texte brut extrait par Docling
+│   └── parsed/               🔜 JSON structuré final
+│
+├── api/
+│   └── main.py               🔜 FastAPI — expose les endpoints
+│
+├── frontend/
+│   └── app.py                🔜 Streamlit ou React
+│
+└── requirements.txt
+

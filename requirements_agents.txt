@@ -1,0 +1,2 @@
+# Dépendances supplémentaires pour le calculateur financier
+decimal>=1.70  # Calculs financiers précis
