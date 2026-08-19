@@ -1,57 +1,140 @@
-# Python
+# ============================================================
+# .gitignore — INETUM Multi-Agent Financial Analysis Pipeline
+# ============================================================
+
+# ─── SECRETS & CREDENTIALS (NEVER commit these) ──────────────
+.env
+.env.local
+.env.production
+.env.*.local
+*.pem
+*.key
+secrets/
+credentials/
+
+# ─── PYTHON ──────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+*.so
 *.egg
 *.egg-info/
 .eggs/
 dist/
 build/
-*.spec
-.venv/
+MANIFEST
+.Python
+
+# ─── VIRTUAL ENVIRONMENTS ────────────────────────────────────
 venv/
+.venv/
 env/
-.env.local
+ENV/
+.conda/
+.python-version
 
-# Environment variables (keep .env.example, ignore .env)
-.env
+# ─── PYTEST & COVERAGE ───────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.coveragerc
+nosetests.xml
 
-# Data & models (large files)
-backend/data/raw/
-backend/data/processed/
-backend/data/rapports/
-*.pdf
-*.onnx
-*.safetensors
-*.bin
+# ─── MYPY / TYPE CHECKERS ────────────────────────────────────
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
-# Node
+# ─── NODE.JS / FRONTEND ──────────────────────────────────────
 node_modules/
 frontend/node_modules/
 frontend/dist/
+frontend/build/
 frontend/.vite/
 .npm/
+.yarn/
+package-lock.json.bak
+yarn-error.log
+.pnpm-debug.log
 
-# ML / HuggingFace cache
+# ─── DATA & GENERATED FILES (large, auto-generated) ──────────
+backend/data/raw/
+backend/data/processed/
+backend/data/rapports/
+data/data/app.db
+data/
+
+# ─── ML / AI MODELS & CACHES ─────────────────────────────────
+*.onnx
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.h5
+*.pkl
+*.joblib
 .cache/
 *.faiss
+.huggingface/
+sentence_transformers/
+__MACOSX/
 
-# OS
+# ─── DATABASE ────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-shm
+*.db-wal
+
+# ─── LOGS ────────────────────────────────────────────────────
+*.log
+logs/
+*.log.*
+log/
+
+# ─── PDF FILES (scraped data, not source) ────────────────────
+*.pdf
+
+# ─── TEMPORARY & MISC ────────────────────────────────────────
+*.tmp
+*.bak
+*.swp
+*.swo
+*.orig
+*.rej
 .DS_Store
 Thumbs.db
 desktop.ini
+ehthumbs.db
+*~
 
-# IDE
+# ─── IDE & EDITORS ───────────────────────────────────────────
 .vscode/
 .idea/
-*.swp
-*.swo
+*.iml
+.project
+.classpath
+.c9/
+*.launch
+.settings/
 
-# Logs
-*.log
-logs/
+# ─── JUPYTER ─────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
 
-# Misc
-*.tmp
-*.bak
+# ─── DOCKER ──────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ─── PROGRESS & STATE FILES ──────────────────────────────────
+progress.json
+src/src/scraper/progress.json
+backend/progress.json
+
+# ─── CURSOR / AI TOOLS (local config) ────────────────────────
+.cursor/
+.codex/
+.kiro/
+.mcp.json

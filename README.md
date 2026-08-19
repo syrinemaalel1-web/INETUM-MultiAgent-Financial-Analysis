@@ -1,487 +1,684 @@
-# CMF Tunisie — KPIs Agent Platform
+# 🤖 INETUM — Pipeline Multi-Agent d'Analyse Financière Automatisée
 
-An end-to-end AI platform for automated extraction, processing, and financial analysis of CMF (Commission du Marché Financier) Tunisia reports. The system scrapes PDF financial statements, extracts structured data, computes SCE KPIs, and generates professional analysis reports — all through a real-time React dashboard.
+<div align="center">
 
----
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)
+![CrewAI](https://img.shields.io/badge/CrewAI-0.80%2B-orange)
+![Agno](https://img.shields.io/badge/Agno-Framework-purple)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-green?logo=fastapi)
+![React](https://img.shields.io/badge/React-18-blue?logo=react)
+![Gemini](https://img.shields.io/badge/Google%20Gemini-AI-red?logo=google)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
-## Table of Contents
+**Automatisation complète de l'analyse des rapports financiers tunisiens (CMF) via un pipeline multi-agent intelligent.**
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Pipeline Stages](#pipeline-stages)
-- [AI Engine System](#ai-engine-system)
-- [RAG System (FAISS + BGE-M3)](#rag-system-faiss--bge-m3)
-- [Financial KPIs](#financial-kpis)
-- [Project Structure](#project-structure)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Running the Application](#running-the-application)
-- [API Reference](#api-reference)
-- [Frontend Features](#frontend-features)
-- [WebSocket Protocol](#websocket-protocol)
-- [Memory & Large Document Handling](#memory--large-document-handling)
-- [Engine Selection](#engine-selection)
+</div>
 
 ---
 
-## Overview
+## 📋 Table des matières
 
-The platform automates the full financial analysis workflow for Tunisian listed companies:
+- [Présentation du projet](#-présentation-du-projet)
+- [Contexte](#-contexte)
+- [Objectif et problème traité](#-objectif-et-problème-traité)
+- [Architecture du système](#-architecture-du-système)
+- [Rôle de chaque agent](#-rôle-de-chaque-agent)
+- [Technologies utilisées](#-technologies-utilisées)
+- [Structure des dossiers](#-structure-des-dossiers)
+- [Prérequis](#-prérequis)
+- [Installation](#-installation)
+- [Configuration des API Keys](#-configuration-des-api-keys)
+- [Lancement du projet](#-lancement-du-projet)
+- [Utilisation du pipeline](#-utilisation-du-pipeline)
+- [Troubleshooting](#-troubleshooting)
+- [Sécurité](#-sécurité)
+- [Contribuer](#-contribuer)
+
+---
+
+## 🎯 Présentation du projet
+
+Ce projet est un **pipeline multi-agent intelligent** qui automatise entièrement l'analyse financière des rapports publiés par la **Commission du Marché Financier (CMF) de Tunisie**.
+
+Le système combine plusieurs agents IA spécialisés pour :
+1. **Scraper** automatiquement les rapports financiers PDF depuis le site CMF
+2. **Extraire** le contenu textuel des PDF avec Docling (OCR inclus)
+3. **Calculer** les KPI financiers selon les normes SCE tunisiennes
+4. **Générer** des rapports d'analyse professionnels en français
+
+Le tout est piloté via une **interface web React** connectée à une **API FastAPI**.
+
+---
+
+## 🏢 Contexte
+
+Ce projet a été réalisé dans le cadre d'un **stage de fin d'études** chez **INETUM Tunisie** (anciennement GFI Informatique), entreprise de services numériques (ESN) présente en Tunisie et en Europe.
+
+L'objectif du stage était de concevoir et implémenter un système d'intelligence artificielle appliqué à la finance de marché tunisienne, en exploitant les dernières avancées des frameworks d'agents autonomes (CrewAI, Agno).
+
+---
+
+## 🎯 Objectif et problème traité
+
+### Le problème
+L'analyse manuelle des rapports financiers des sociétés cotées à la **Bourse des Valeurs Mobilières de Tunis (BVMT)** est :
+- ⏱️ **Chronophage** : des dizaines de PDF à lire et analyser chaque trimestre
+- 🔢 **Fastidieuse** : calculs répétitifs de ratios (ROE, ROA, BFR, FRNG...)
+- 📊 **Non standardisée** : chaque analyste interprète les données différemment
+- ❌ **Sujette aux erreurs** humaines de calcul
+
+### La solution
+Un **pipeline automatisé** qui :
+- Télécharge les rapports PDF directement depuis CMF.tn
+- Extrait et structure les données financières
+- Calcule automatiquement les KPI SCE tunisiens (Système Comptable des Entreprises)
+- Génère un rapport d'analyse professionnel standardisé en Markdown
+- Présente les résultats dans un tableau de bord interactif
+
+---
+
+## 🏗️ Architecture du système
 
 ```
-CMF Website → PDF Scraper → Docling Extractor → AI Agents → KPI Report → React Dashboard
+┌────────────────────────────────────────────────────────────┐
+│                    INTERFACE UTILISATEUR                    │
+│                   React + Vite (Frontend)                   │
+│          Dashboard KPI │ Visionneuse Rapports               │
+└────────────────────────────┬───────────────────────────────┘
+                             │ HTTP / WebSocket
+                             ▼
+┌────────────────────────────────────────────────────────────┐
+│                     API GATEWAY                             │
+│                  FastAPI (Backend)                           │
+│     /scrape │ /process │ /report │ /kpis │ /upload         │
+└──────┬───────────────┬───────────────────┬─────────────────┘
+       │               │                   │
+       ▼               ▼                   ▼
+┌──────────┐   ┌──────────────┐   ┌─────────────────────┐
+│  PHASE 1 │   │   PHASE 2    │   │       PHASE 3        │
+│ SCRAPER  │   │  EXTRACTEUR  │   │    ANALYSE IA        │
+│          │   │              │   │                      │
+│ CrewAI   │   │   Docling    │   │  DISPATCHER          │
+│ Agent +  │   │   PDF→MD     │   │  ┌───────────────┐  │
+│ Gemini   │   │   + OCR      │   │  │ CrewAI Engine │  │
+│ 2.5 Flash│   │              │   │  │ (docs < 20p.) │  │
+│          │   │              │   │  ├───────────────┤  │
+│ → PDFs   │   │ → Markdown   │   │  │  Agno Engine  │  │
+│ → URLs   │   │   structuré  │   │  │ (docs > 20p.) │  │
+└──────────┘   └──────────────┘   │  └───────────────┘  │
+                                  │  → Rapport MD        │
+                                  │  → KPIs JSON         │
+                                  └─────────────────────┘
+                                          │
+                                          ▼
+                                  ┌───────────────┐
+                                  │  BASE DE      │
+                                  │  DONNÉES      │
+                                  │  SQLite       │
+                                  └───────────────┘
 ```
 
-It handles documents ranging from small 5-page SICAV reports to large 67+ page Tunisair consolidated statements, with automatic memory management and intelligent engine selection.
+### Flux de données complet
+
+```
+CMF.tn Website
+     │
+     │ (Scraping + Download)
+     ▼
+PDF Reports ──► Docling Extractor ──► Markdown
+                                         │
+                          ┌──────────────┘
+                          ▼
+              Dispatcher (sélection intelligente)
+                 ├── Court (<20 pages) → CrewAI
+                 └── Long (>20 pages) → Agno (FAISS RAG)
+                          │
+                          ▼
+              Agent Calculateur (Gemini Pro)
+              [Extrait les données brutes du bilan]
+                          │
+                          ▼
+              Agent Rapporteur (Gemini Flash)
+              [Génère le rapport en Markdown]
+                          │
+              ┌───────────┴───────────┐
+              ▼                       ▼
+        Rapport MD              KPIs JSON
+        (analyse narrative)    (données structurées)
+```
 
 ---
 
-## Architecture
+## 🤖 Rôle de chaque agent
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        React Frontend                           │
-│  DocumentList │ EngineSelector │ ReportView │ WebSocketMonitor  │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ HTTP + WebSocket
-┌──────────────────────────▼──────────────────────────────────────┐
-│                    FastAPI Backend (main.py)                     │
-│  /documents │ /process/{file} │ /report │ /engines/info │ /ws   │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────────┐
-│                   Analysis Dispatcher                           │
-│         Auto mode │ Manual CrewAI │ Manual Agno                 │
-└──────────┬────────────────────────────────┬────────────────────┘
-           │                                │
-┌──────────▼──────────┐          ┌──────────▼──────────────────┐
-│   CrewAI Engine     │          │      Agno Engine             │
-│  agents.py          │          │  agents_agno.py              │
-│  Gemini 2.5 Pro     │          │  Gemini 2.5 Pro + Flash      │
-│  + Flash fallback   │          │  + RAG FAISS + BGE-M3        │
-│  + MCP Calculator   │          │  + MCP Calculator            │
-└─────────────────────┘          └──────────────────────────────┘
-           │                                │
-┌──────────▼────────────────────────────────▼────────────────────┐
-│                    PDF Extractor (extract.py)                   │
-│   Docling + PyPDF2 chunking (15 pages/chunk) + MemoryOptimizer  │
-└─────────────────────────────────────────────────────────────────┘
-           │
-┌──────────▼──────────────────────────────────────────────────────┐
-│                    CMF Scraper (agent.py)                       │
-│              Selenium + BeautifulSoup + Rate limiting           │
-└─────────────────────────────────────────────────────────────────┘
-```
+### Agent 1 — Scraper CMF (`src/src/scraper/agent.py`)
+| Propriété | Valeur |
+|-----------|--------|
+| **Rôle** | Naviguer sur CMF.tn, collecter les liens PDF, télécharger les rapports |
+| **Framework** | CrewAI |
+| **LLM** | Gemini 2.5 Flash |
+| **Sortie** | Fichiers PDF dans `backend/data/raw/` + `urls.json` |
 
----
+Cet agent :
+- Parcourt les pages de consultation des états financiers CMF
+- Identifie les liens vers les PDF des rapports annuels
+- Télécharge les PDF avec gestion de la progression (resume-capable)
+- Filtre optionnellement par nom de société
 
-## Pipeline Stages
+### Agent 2 — Extracteur Docling (`src/src/extractor/extract.py`)
+| Propriété | Valeur |
+|-----------|--------|
+| **Rôle** | Convertir les PDF en Markdown structuré |
+| **Framework** | Docling (IBM) |
+| **LLM** | Aucun (traitement local) |
+| **Sortie** | Fichiers `.md` dans `backend/data/processed/` |
 
-### Stage 1 — Scraping (`src/src/scraper/agent.py`)
-- Scrapes the CMF Tunisia website for listed company financial reports
-- Downloads PDF files to `data/data/raw/`
-- Supports pagination, company filtering, and incremental downloads
-- Rate-limited to avoid server overload
+Cet agent :
+- Utilise Docling pour extraire texte, tableaux et figures des PDF
+- Supporte l'OCR pour les documents scannés (activé via `DO_OCR=true`)
+- Préserve la structure des tableaux financiers (bilans, états de résultat)
+- Mode safe pour contourner les erreurs mémoire sur gros documents
 
-### Stage 2 — PDF Extraction (`src/src/extractor/extract.py`)
-- Uses **Docling** for intelligent PDF-to-Markdown conversion
-- Extracts sections, tables, and full text with semantic labeling
-- **Automatic chunking** for documents > 15 pages (splits into 15-page chunks via PyPDF2, processes each, merges results)
-- **Memory fallback chain**: Full extraction → No OCR → No tables → Minimal mode
-- Outputs structured Markdown to `data/data/processed/`
-- Jinja2 templates for consistent Markdown formatting
+### Agent 3 — Calculateur KPI (CrewAI/Agno)
+| Propriété | Valeur |
+|-----------|--------|
+| **Rôle** | Extraire les valeurs brutes du bilan et calculer les KPI SCE |
+| **Framework** | CrewAI (court) ou Agno+FAISS (long) |
+| **LLM** | Gemini Pro (extraction longue) |
+| **Sortie** | JSON avec tous les KPI calculés |
 
-### Stage 3 — AI Analysis (CrewAI or Agno)
-- Two specialized agents work sequentially:
-  1. **Agent Calculateur** — extracts raw financial figures, computes 12 SCE KPIs
-  2. **Agent Rapporteur** — generates professional analysis report in French
-- Uses **MCP Financial Calculator** for precise Decimal arithmetic (no hallucinated numbers)
-- Outputs reports to `data/data/rapports/`
+KPI calculés selon les normes SCE tunisiennes :
+- **Rentabilité** : Marge d'Exploitation, Marge Nette, ROE, ROA
+- **Structure** : Autonomie Financière, Ratio d'Endettement, FRNG, BFR
+- **Liquidité** : Liquidité Générale, Liquidité Immédiate, Trésorerie Nette
+
+### Agent 4 — Rapporteur BVMT (CrewAI/Agno)
+| Propriété | Valeur |
+|-----------|--------|
+| **Rôle** | Rédiger le rapport d'analyse financière professionnel |
+| **Framework** | CrewAI ou Agno |
+| **LLM** | Gemini 2.5 Flash (rédaction rapide) |
+| **Sortie** | Rapport Markdown dans `backend/data/rapports/` |
+
+### Dispatcher Intelligent (`src/src/agents/dispatcher.py`)
+Le dispatcher choisit automatiquement le moteur d'analyse :
+- **CrewAI** → pour documents < 20 pages (rapide, simple)
+- **Agno + FAISS RAG** → pour documents > 20 pages (robuste, avec chunking)
+- **Fallback automatique** → si CrewAI échoue (quota, erreur), bascule sur Agno
 
 ---
 
-## AI Engine System
+## 🛠️ Technologies utilisées
 
-### Dispatcher (`src/src/agents/dispatcher.py`)
-
-The dispatcher automatically selects the best engine or respects user preference:
-
-| Condition | Engine Selected | Reason |
-|-----------|----------------|--------|
-| Document < 20 pages + quota OK | CrewAI | Fast, simple |
-| Document > 25 pages | Agno | Handles large docs |
-| Quota errors ≥ 3 | Agno | Automatic fallback |
-| User selects manually | User choice | Respected always |
-| CrewAI quota error | Agno fallback | Auto-recovery |
-
-### CrewAI Engine (`src/src/agents/agents.py`)
-- **Agent Calculateur**: Gemini 2.5 Pro (heavy context extraction)
-- **Agent Rapporteur**: Gemini 2.5 Flash (report generation)
-- Sequential crew workflow
-- Rate limiting: 15 RPM
-- MCP tools for financial calculations
-
-### Agno Engine (`src/src/agents/agents_agno.py`)
-- **Agent Calculateur**: Gemini 2.5 Pro with fallback config
-- **Agent Rapporteur**: Gemini 2.5 Flash with fallback config
-- Fallback chain: Pro → Flash → Flash 1.5 on quota/error
-- Exponential backoff retry (5 attempts for calculateur, 3 for rapporteur)
-- **RAG FAISS** for large documents (see below)
-- Structured output via Pydantic models (`FinancialKPIs`, `FinancialReport`)
+| Catégorie | Technologie | Usage |
+|-----------|-------------|-------|
+| **Agent Framework** | [CrewAI](https://github.com/crewAIInc/crewAI) ≥ 0.80 | Pipeline multi-agents séquentiels |
+| **Agent Framework** | [Agno](https://github.com/agno-agi/agno) | Agents robustes avec RAG FAISS |
+| **LLM** | Google Gemini (via API) | Gemini Pro (extraction) + Flash (rapport) |
+| **PDF Extraction** | [Docling](https://github.com/DS4SD/docling) | Conversion PDF → Markdown structuré |
+| **Vector DB** | FAISS (local) | Embeddings pour grands documents |
+| **Backend** | FastAPI + Uvicorn | API REST + WebSocket temps réel |
+| **Frontend** | React 18 + Vite | Dashboard interactif |
+| **Base de données** | SQLite (SQLAlchemy) | Gestion des documents et statuts |
+| **Scraping** | Requests + BeautifulSoup | Navigation CMF.tn |
+| **Calculs financiers** | Pandas + NumPy | KPI SCE tunisiens |
 
 ---
 
-## RAG System (FAISS + BGE-M3)
-
-For documents exceeding 50,000 characters, the Agno engine activates a local RAG pipeline to avoid context window limits without losing any data.
-
-### How it works
+## 📁 Structure des dossiers
 
 ```
-Large Document (e.g. Tunisair 266k chars)
-         │
-         ▼
-  Split into chunks (3000 chars, 300 overlap)
-  ~100 chunks for a 266k doc
-         │
-         ▼
-  BGE-M3 local embeddings (1024d, 100+ languages)
-  No API calls, no quota usage
-         │
-         ▼
-  FAISS IndexFlatIP (cosine similarity)
-         │
-         ▼
-  8 financial queries run against index:
-  - "bilan actif passif total actif capitaux propres"
-  - "résultat net résultat exploitation chiffre affaires"
-  - "dettes long terme dettes courantes passif"
-  - ... (8 queries total)
-         │
-         ▼
-  Top-5 chunks per query retrieved → merged (deduped)
-  ~40-60 relevant chunks sent to LLM
-  Zero data loss — everything is indexed
-```
-
-### BGE-M3 Model
-- **Model**: `BAAI/bge-m3`
-- **Size**: ~570MB (downloaded once, cached locally)
-- **Dimensions**: 1024
-- **Languages**: 100+ including French and Arabic
-- **Context**: Up to 8192 tokens per chunk
-- **Fallback**: `gemini-embedding-exp-03-07` if sentence-transformers unavailable
-
-### Why BGE-M3 over alternatives
-| Model | Size | Languages | Dims | Best for |
-|-------|------|-----------|------|----------|
-| all-MiniLM-L6-v2 | 90MB | English | 384 | English only |
-| paraphrase-multilingual-MiniLM-L12-v2 | 120MB | 50 | 384 | Light multilingual |
-| **BAAI/bge-m3** | **570MB** | **100+** | **1024** | **Our choice — FR/AR financial docs** |
-| multilingual-e5-large | 560MB | 100+ | 1024 | Similar quality |
-
----
-
-## Financial KPIs
-
-The system computes 12 SCE (Système Comptable des Entreprises) Tunisian KPIs:
-
-### Rentabilité
-| KPI | Formula |
-|-----|---------|
-| Marge d'Exploitation (KPI_R1) | (Résultat Exploitation / CA) × 100 |
-| Marge Nette (KPI_R2) | (Résultat Net / CA) × 100 |
-| ROE (KPI_R3) | (Résultat Net / Capitaux Propres) × 100 |
-| ROA (KPI_R4) | (Résultat Net / Total Actif) × 100 |
-
-### Structure Financière
-| KPI | Formula |
-|-----|---------|
-| Autonomie Financière (KPI_S1) | (Capitaux Propres / Total Actif) × 100 |
-| Ratio d'Endettement (KPI_S2) | Total Dettes / Capitaux Propres |
-| FRNG (KPI_S4) | (Capitaux Propres + Dettes LT) - Actif Non Courant |
-| BFR (KPI_S5) | Actifs Courants - Passifs Courants |
-| Trésorerie Nette (KPI_S6) | FRNG - BFR |
-
-### Liquidité
-| KPI | Formula |
-|-----|---------|
-| Liquidité Générale (KPI_L1) | (Actifs Courants + Trésorerie) / Dettes Courantes |
-| Liquidité Immédiate (KPI_L2) | Trésorerie / Dettes Courantes |
-
-### SCE Tunisian Thresholds
-- Autonomie financière saine: > 30%
-- Liquidité générale correcte: > 1.0
-- Endettement acceptable: < 1.0
-
----
-
-## Project Structure
-
-```
-kpisagent/
-├── backend/
-│   ├── main.py              # FastAPI server — all endpoints + WebSocket
-│   ├── config.py            # Paths, env vars, timeouts
-│   └── database.py          # SQLAlchemy models (Document table)
+INETUM-MultiAgent-Financial-Analysis/
 │
-├── src/src/
-│   ├── agents/
-│   │   ├── agents.py        # CrewAI engine (Gemini Pro + Flash)
-│   │   ├── agents_agno.py   # Agno engine + RAG FAISS + BGE-M3
-│   │   ├── dispatcher.py    # Engine selection logic
-│   │   ├── financial_calculator.py  # MCP Decimal calculator
-│   │   └── crewai_tools.py  # CrewAI tool wrappers
-│   │
-│   ├── extractor/
-│   │   ├── extract.py       # Docling PDF→Markdown + chunking
-│   │   ├── memory_optimizer.py  # std::bad_alloc handler
-│   │   └── templates/
-│   │       └── report.md.j2 # Jinja2 Markdown template
-│   │
-│   └── scraper/
-│       └── agent.py         # CMF website scraper
+├── .env.example              ← Modèle de configuration (à copier en .env)
+├── .gitignore                ← Fichiers exclus du versioning
+├── pyproject.toml            ← Métadonnées du projet Python
+├── requirements.txt          ← Dépendances Python principales
+├── requirements_agno.txt     ← Dépendances supplémentaires pour Agno
+├── docker-compose.yml        ← Configuration Docker (optionnel)
 │
-├── frontend/
+├── backend/                  ← API FastAPI + logique métier
+│   ├── main.py               ← Point d'entrée du backend (FastAPI app)
+│   ├── config.py             ← Configuration des chemins et variables
+│   ├── database.py           ← Modèles SQLAlchemy (Document)
+│   └── data/                 ← Données générées (ignorées par git)
+│       ├── raw/              ← PDFs téléchargés depuis CMF.tn
+│       ├── processed/        ← Fichiers Markdown extraits
+│       └── rapports/         ← Rapports d'analyse générés
+│
+├── src/src/                  ← Modules principaux des agents
+│   ├── agents/               ← Agents d'analyse IA
+│   │   ├── agents.py         ← Pipeline CrewAI (Calculateur + Rapporteur)
+│   │   ├── agents_agno.py    ← Pipeline Agno avec FAISS RAG
+│   │   ├── dispatcher.py     ← Sélecteur intelligent de moteur
+│   │   ├── crewai_tools.py   ← Outils de calcul financier CrewAI
+│   │   └── financial_calculator.py ← Calculateur KPI SCE tunisien
+│   ├── extractor/            ← Extraction PDF → Markdown
+│   │   ├── extract.py        ← Processeur batch Docling
+│   │   └── memory_optimizer.py ← Gestion mémoire pour gros PDF
+│   └── scraper/              ← Scraper CMF.tn
+│       └── agent.py          ← Agent CrewAI de scraping
+│
+├── frontend/                 ← Interface React + Vite
 │   ├── src/
-│   │   ├── components/
-│   │   │   ├── DocumentList.jsx      # Document list + engine selector modal
-│   │   │   ├── EngineSelector.jsx    # Auto/CrewAI/Agno selector UI
-│   │   │   ├── EngineRecommendation.jsx  # Recommendation display
-│   │   │   ├── ReportView.jsx        # Report viewer with engine badge
-│   │   │   ├── ErrorDisplay.jsx      # Structured error UI
-│   │   │   ├── ErrorBoundary.jsx     # React error boundary
-│   │   │   ├── WebSocketMonitor.jsx  # Connection status indicator
-│   │   │   └── NotificationToast.jsx # Toast notifications
-│   │   ├── contexts/
-│   │   │   └── WebSocketContext.jsx  # WS context + auto-reconnect
-│   │   ├── hooks/
-│   │   │   ├── useWebSocket.js       # WS hook with exponential backoff
-│   │   │   └── useEnginePreference.js # localStorage engine preference
-│   │   ├── utils/
-│   │   │   └── errorHandler.js       # Error classification utilities
-│   │   └── config/
-│   │       └── api.js                # Centralized API URLs from env vars
-│   └── package.json
+│   │   ├── App.jsx           ← Application principale
+│   │   ├── components/       ← Composants React (Dashboard, Reports...)
+│   │   ├── config/api.js     ← Configuration des endpoints API
+│   │   ├── contexts/         ← Contextes React (WebSocket, état)
+│   │   └── hooks/            ← Hooks personnalisés
+│   ├── package.json          ← Dépendances Node.js
+│   └── vite.config.js        ← Configuration Vite
 │
-├── data/data/
-│   ├── raw/                 # Downloaded PDFs from CMF
-│   ├── processed/           # Extracted Markdown files
-│   └── rapports/            # Generated analysis reports + KPI JSONs
-│
-├── env                      # Environment variables (not committed)
-├── requirements.txt         # Core Python dependencies
-├── requirements_agents.txt  # CrewAI + Gemini dependencies
-└── requirements_agno.txt    # Agno + FAISS + BGE-M3 dependencies
+├── tests/                    ← Tests unitaires et d'intégration
+├── docs/                     ← Documentation technique
+└── logs/                     ← Fichiers de log (ignorés par git)
 ```
 
 ---
 
-## Installation
+## 📦 Prérequis
 
-### Prerequisites
-- Python 3.10+
-- Node.js 18+
-- ~2GB disk space (for BGE-M3 model cache on first run)
+Avant d'installer le projet, assurez-vous d'avoir :
 
-### 1. Clone
+| Outil | Version minimale | Vérification |
+|-------|-----------------|--------------|
+| **Python** | 3.10+ | `python --version` |
+| **Node.js** | 18+ | `node --version` |
+| **npm** | 8+ | `npm --version` |
+| **Git** | 2.30+ | `git --version` |
+
+### Installation de Python (si nécessaire)
 ```bash
-git clone https://github.com/slimgithub04/kpisagent.git
-cd kpisagent
+# Windows : télécharger depuis https://python.org/downloads/
+# Ubuntu/Debian :
+sudo apt update && sudo apt install python3.10 python3.10-venv python3-pip
+
+# macOS avec Homebrew :
+brew install python@3.10
 ```
 
-### 2. Python dependencies
+### Installation de Node.js (si nécessaire)
 ```bash
-# Core backend
+# Windows : télécharger depuis https://nodejs.org/ (LTS)
+# Ubuntu/Debian :
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install nodejs
+
+# macOS avec Homebrew :
+brew install node
+```
+
+---
+
+## 🚀 Installation
+
+### Étape 1 — Cloner le repository
+
+```bash
+git clone https://github.com/syrinemaalel1-web/INETUM-MultiAgent-Financial-Analysis.git
+cd INETUM-MultiAgent-Financial-Analysis
+```
+
+### Étape 2 — Créer l'environnement virtuel Python
+
+```bash
+# Créer l'environnement virtuel
+python -m venv venv
+```
+
+### Étape 3 — Activer l'environnement virtuel
+
+**Windows (PowerShell) :**
+```powershell
+venv\Scripts\Activate.ps1
+```
+
+**Windows (Command Prompt) :**
+```cmd
+venv\Scripts\activate.bat
+```
+
+**Linux / macOS :**
+```bash
+source venv/bin/activate
+```
+
+> ✅ Vous devriez voir `(venv)` apparaître au début de votre invite de commande.
+
+### Étape 4 — Installer les dépendances Python
+
+```bash
+# Dépendances principales
 pip install -r requirements.txt
 
-# AI agents (CrewAI + Gemini)
-pip install -r requirements_agents.txt
-
-# Agno + FAISS + BGE-M3
+# Dépendances Agno (pour les grands documents)
 pip install -r requirements_agno.txt
 ```
 
-### 3. Frontend
+> ⏳ L'installation peut prendre 5 à 10 minutes (Docling + modèles ML inclus).
+
+### Étape 5 — Installer les dépendances Frontend
+
 ```bash
 cd frontend
 npm install
+cd ..
 ```
 
 ---
 
-## Configuration
+## 🔑 Configuration des API Keys
 
-### Backend — `env` file (root directory)
+### Variables d'environnement nécessaires
+
+Le projet utilise **2 clés API** :
+
+---
+
+#### 1. `GOOGLE_API_KEY` — Clé Google Gemini (**OBLIGATOIRE**)
+
+**Rôle :** C'est la clé principale utilisée par **tous les agents IA** du pipeline :
+- Agent Scraper (Gemini 2.5 Flash)
+- Agent Calculateur KPI (Gemini Pro — Long Context)
+- Agent Rapporteur BVMT (Gemini 2.5 Flash)
+
+**Comment l'obtenir :**
+1. Aller sur [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+2. Se connecter avec un compte Google
+3. Cliquer sur **"Create API Key"**
+4. Copier la clé générée (commence par `AIzaSy...`)
+
+> 💡 **Quota gratuit disponible** : Google offre un quota gratuit généreux pour Gemini Flash et Pro.
+
+---
+
+#### 2. `OPENAI_API_KEY` — Clé OpenAI (**OPTIONNELLE**)
+
+**Rôle :** Utilisée uniquement si vous activez les outils d'embedding OpenAI dans CrewAI. Dans la configuration actuelle du projet, seule la clé Google est indispensable.
+
+**Comment l'obtenir :**
+1. Aller sur [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+2. Créer un compte ou se connecter
+3. Cliquer sur **"+ Create new secret key"**
+4. Copier la clé (commence par `sk-...`)
+
+---
+
+### Créer le fichier `.env`
+
 ```bash
-# Required
-GOOGLE_API_KEY=your_google_api_key_here
+# Copier le fichier exemple
+cp .env.example .env
+```
 
-# PDF Extraction
-DO_OCR=false              # Keep false to save memory (auto-enables if text too short)
-SAFE_MODE=false           # Set true to disable table extraction on low-RAM machines
-DOCLING_MAX_PAGES=15      # Max pages per chunk
-DOCLING_BATCH_SIZE=1      # Process one chunk at a time
-DOCLING_LOW_MEMORY=true   # Aggressive memory optimization
+**Éditer `.env` avec vos propres clés :**
 
-# Server
+```env
+# ─── OBLIGATOIRE ─────────────────────────────────────────────
+GOOGLE_API_KEY=AIzaSy...votre_vraie_cle_ici...
+
+# ─── OPTIONNEL ───────────────────────────────────────────────
+OPENAI_API_KEY=sk-...votre_cle_openai_si_necessaire...
+
+# ─── CONFIGURATION ───────────────────────────────────────────
+DO_OCR=false
+SAFE_MODE=false
 API_HOST=0.0.0.0
 API_PORT=8000
-TIMEOUT_SECONDS=600
 ```
 
-### Frontend — `frontend/.env`
-```bash
-VITE_API_URL=http://localhost:8000
-VITE_WS_URL=ws://localhost:8000
-```
-
-For production:
-```bash
-VITE_API_URL=https://your-backend-domain.com
-VITE_WS_URL=wss://your-backend-domain.com
-```
+> ⚠️ **IMPORTANT** : Ne partagez jamais votre fichier `.env`. Il est listé dans `.gitignore` et ne sera jamais uploadé sur GitHub.
 
 ---
 
-## Running the Application
+## ▶️ Lancement du projet
 
-### Backend
+### Lancer le Backend (FastAPI)
+
+Ouvrez un terminal dans le dossier racine du projet :
+
 ```bash
-# From project root (backend/ directory is the working dir)
-python backend/main.py
-```
-API available at `http://localhost:8000`  
-API docs at `http://localhost:8000/docs`
+# Activer l'environnement virtuel d'abord !
+# Windows : venv\Scripts\Activate.ps1
+# Linux/macOS : source venv/bin/activate
 
-### Frontend
+cd backend
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Le backend sera accessible à : **http://localhost:8000**
+Documentation API interactive : **http://localhost:8000/docs**
+
+### Lancer le Frontend (React)
+
+Ouvrez un **second terminal** :
+
 ```bash
 cd frontend
 npm run dev
 ```
-UI available at `http://localhost:5173`
 
-> Note: On first Agno analysis of a large document, BGE-M3 (~570MB) will download and cache. Subsequent runs load from cache in ~3-5s.
-
----
-
-## API Reference
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Health check |
-| GET | `/stats` | Processing statistics |
-| GET | `/documents` | List all documents with status |
-| POST | `/scrape` | Start CMF website scraping |
-| POST | `/process/{filename}` | Process a PDF (with engine preference) |
-| GET | `/report/{filename}` | Get generated analysis report |
-| GET | `/kpis/{filename}` | Get extracted KPIs as JSON |
-| POST | `/upload` | Upload a PDF file |
-| GET | `/engines/info` | Get engine details and capabilities |
-| POST | `/engines/recommend` | Get engine recommendation for a file |
-| WS | `/ws` | WebSocket for real-time updates |
-
-### Process endpoint body
-```json
-{
-  "engine_mode": "auto",        // "auto" or "manual"
-  "selected_engine": "agno"     // "crewai" or "agno" (only if mode="manual")
-}
-```
+Le frontend sera accessible à : **http://localhost:5173**
 
 ---
 
-## Frontend Features
+## 📊 Utilisation du pipeline
 
-### Engine Selector
-- Three modes: **Auto** (system decides), **CrewAI** (fast), **Agno** (robust)
-- Tooltips explaining each engine's strengths
-- Preference persisted in `localStorage`
-- Recommendation badge shown when user overrides system suggestion
+### Via l'interface web (recommandé)
 
-### Document List
-- Real-time status updates via WebSocket
-- Engine badge on completed documents (shows which engine was used)
-- Upload button for manual PDF upload
-- Scrape button to trigger CMF website scraping
+1. **Ouvrir** http://localhost:5173 dans votre navigateur
+2. **Dashboard** : voir les statistiques des documents (PDFs, MD, rapports)
 
-### Report Viewer
-- Full Markdown rendering of generated reports
-- KPI table display
-- Engine used indicator
-- Download option
+### Workflow complet en 3 étapes
 
-### Error Handling
-- Distinguishes "no data" from "server unreachable"
-- Retry buttons on failed operations
-- Toast notifications for connection events
-- React ErrorBoundary for unexpected crashes
+#### Étape 1 — Scraper les rapports CMF
 
----
-
-## WebSocket Protocol
-
-### Server → Client messages
-
-```json
-// Processing status update
-{"type": "status", "filename": "doc.pdf", "status": "processing|extracted|completed|failed", "engine_used": "agno", "engine_reason": "..."}
-
-// Scraping status
-{"type": "scrape_status", "status": "started|success|error", "message": "..."}
-```
-
-### Connection behavior
-- Auto-reconnect with exponential backoff (max 10 attempts)
-- Visual indicator in sidebar (green/yellow/red)
-- Toast notification on disconnect/reconnect
-
----
-
-## Memory & Large Document Handling
-
-### The problem
-Large PDFs (Tunisair 67 pages, ~266k chars extracted) caused `std::bad_alloc` errors in Docling's C++ layout engine.
-
-### Solution: PDF Chunking
-Documents > 15 pages are automatically split into 15-page chunks using PyPDF2:
-```
-67-page Tunisair PDF → 5 chunks × 15 pages → processed sequentially → merged
-```
-
-### Memory fallback chain (per chunk)
-```
-Full extraction (OCR + tables)
-    ↓ (if std::bad_alloc)
-No OCR (text-only extraction)
-    ↓ (if still fails)
-No tables (minimal extraction)
-    ↓ (if still fails)
-Fallback Markdown with error info
-```
-
-### Environment tuning
+Via l'API :
 ```bash
-DO_OCR=false              # Biggest memory saver
-DOCLING_MAX_PAGES=15      # Chunk size
-DOCLING_BATCH_SIZE=1      # One chunk at a time
-DOCLING_LOW_MEMORY=true   # Disable page/table images
+curl -X POST http://localhost:8000/scrape \
+  -H "Content-Type: application/json" \
+  -d '{"page_start": 0, "page_end": 2}'
+```
+
+Ou filtrer par société :
+```bash
+curl -X POST http://localhost:8000/scrape \
+  -H "Content-Type: application/json" \
+  -d '{"page_start": 0, "page_end": 5, "societe_filter": "SFBT"}'
+```
+
+#### Étape 2 — Uploader un PDF manuellement (alternative)
+
+```bash
+curl -X POST http://localhost:8000/upload \
+  -F "file=@rapport_annuel_2023.pdf"
+```
+
+#### Étape 3 — Lancer l'analyse IA
+
+```bash
+# Mode automatique (dispatcher choisit le moteur)
+curl -X POST http://localhost:8000/process/rapport_annuel_2023.pdf \
+  -H "Content-Type: application/json" \
+  -d '{"engine_mode": "auto"}'
+
+# Forcer CrewAI (documents courts)
+curl -X POST http://localhost:8000/process/rapport_annuel_2023.pdf \
+  -H "Content-Type: application/json" \
+  -d '{"engine_mode": "manual", "selected_engine": "crewai"}'
+
+# Forcer Agno (documents longs, avec FAISS RAG)
+curl -X POST http://localhost:8000/process/rapport_annuel_2023.pdf \
+  -H "Content-Type: application/json" \
+  -d '{"engine_mode": "manual", "selected_engine": "agno"}'
+```
+
+#### Récupérer les résultats
+
+```bash
+# Rapport Markdown complet
+curl http://localhost:8000/report/rapport_annuel_2023.pdf
+
+# KPIs au format JSON
+curl http://localhost:8000/kpis/rapport_annuel_2023.pdf
+
+# Liste de tous les documents
+curl http://localhost:8000/documents
+
+# Statistiques globales
+curl http://localhost:8000/stats
+```
+
+### Via Docker (optionnel)
+
+```bash
+docker-compose up --build
 ```
 
 ---
 
-## Engine Selection
+## ❗ Troubleshooting
 
-### When to use CrewAI
-- Documents under 20 pages
-- Quick analysis needed
-- Standard financial reports (SICAV, small companies)
+### Problème : `GOOGLE_API_KEY non trouvée`
 
-### When to use Agno
-- Large documents (Tunisair, consolidated groups, 30+ pages)
-- When Gemini quota is limited (auto-fallback to Flash)
-- Production-critical analysis requiring retry logic
-- Documents mixing French and Arabic content (BGE-M3 handles both)
+**Symptôme :** Message d'avertissement au démarrage du backend ou erreur d'analyse.
 
-### Auto mode behavior
-The dispatcher analyzes document complexity (character count, estimated pages, keyword density) and selects the optimal engine automatically. CrewAI quota errors trigger automatic fallback to Agno.
+**Solution :**
+```bash
+# Vérifier que .env existe à la racine du projet
+ls -la .env
+
+# Vérifier son contenu (ne doit PAS montrer la vraie clé dans les logs)
+head -1 .env
+
+# S'assurer que la clé est correctement définie
+grep GOOGLE_API_KEY .env
+```
+
+---
+
+### Problème : `ImportError: No module named 'crewai'`
+
+**Solution :**
+```bash
+# S'assurer que l'environnement virtuel est activé
+pip install -r requirements.txt
+```
+
+---
+
+### Problème : `ModuleNotFoundError: No module named 'agno'`
+
+**Solution :**
+```bash
+pip install -r requirements_agno.txt
+```
+
+---
+
+### Problème : Erreur de mémoire lors de l'extraction PDF
+
+**Symptôme :** `MemoryError` ou crash du backend sur gros PDF.
+
+**Solution :**
+```env
+# Dans votre .env, activer le mode safe
+SAFE_MODE=true
+```
+
+---
+
+### Problème : `CORS error` dans le frontend
+
+**Symptôme :** Erreur dans la console du navigateur lors des appels API.
+
+**Solution :** Vérifier que le backend tourne bien sur le port 8000 et que le frontend utilise la bonne URL dans `frontend/.env` :
+```env
+VITE_API_URL=http://localhost:8000
+VITE_WS_URL=ws://localhost:8000
+```
+
+---
+
+### Problème : `429 Too Many Requests` (quota Gemini)
+
+**Symptôme :** Erreur de quota sur l'API Google.
+
+**Solution :**
+- Le dispatcher bascule automatiquement vers le moteur de secours
+- Attendre quelques minutes avant de relancer
+- Envisager un plan payant sur [Google AI Studio](https://aistudio.google.com/)
+
+---
+
+### Problème : Le scraping ne trouve pas de PDF
+
+**Symptôme :** Aucun fichier téléchargé après le scraping.
+
+**Solution :**
+```bash
+# Vérifier que le site CMF.tn est accessible
+curl -I "https://www.cmf.tn/?q=consultation-des-tats-financier-des-soci-t-s-faisant-ape"
+
+# Vérifier les logs du backend
+tail -f logs/backend.log
+```
+
+---
+
+## 🔒 Sécurité
+
+Ce projet suit les bonnes pratiques de sécurité suivantes :
+
+| Mesure | Statut |
+|--------|--------|
+| `.env` dans `.gitignore` | ✅ |
+| Vraies clés **jamais** dans le code | ✅ |
+| `.env.example` avec placeholders uniquement | ✅ |
+| Variables d'environnement via `python-dotenv` | ✅ |
+| Aucune credential dans les logs | ✅ |
+
+**Règles à respecter absolument :**
+- 🚫 Ne jamais commiter le fichier `.env`
+- 🚫 Ne jamais partager vos clés API dans des issues ou PR
+- 🚫 Ne jamais hardcoder une clé directement dans le code source
+- ✅ Toujours utiliser `.env.example` comme référence pour les autres développeurs
+- ✅ Si une clé est accidentellement exposée, la révoquer immédiatement
+
+---
+
+## 🤝 Contribuer
+
+Les contributions sont les bienvenues ! Consultez [CONTRIBUTING.md](CONTRIBUTING.md) pour les guidelines.
+
+```bash
+# Fork le projet, puis :
+git checkout -b feature/ma-fonctionnalite
+git commit -m "feat: ajout de ma fonctionnalité"
+git push origin feature/ma-fonctionnalite
+# Ouvrir une Pull Request
+```
+
+---
+
+## 📄 Licence
+
+Ce projet est distribué sous licence **MIT**. Voir [LICENSE](LICENSE) pour plus de détails.
+
+---
+
+## 📬 Contact
+
+Projet réalisé dans le cadre d'un stage chez **INETUM Tunisie**.
+
+> 💡 Si vous rencontrez un problème non documenté, ouvrez une [issue](https://github.com/syrinemaalel1-web/INETUM-MultiAgent-Financial-Analysis/issues) sur GitHub.
+
+---
+
+<div align="center">
+
+**Fait avec ❤️ chez INETUM Tunisie**
+
+*Pipeline Multi-Agent · CrewAI · Agno · Gemini · FastAPI · React*
+
+</div>
